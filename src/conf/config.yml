@@ -1,0 +1,15 @@
+# database.yml
+
+development:
+  host: localhost
+  database: gaming_study
+  username: root
+  password: root
+  port: 8080
+
+production:
+  host: 127.0.0.1
+  database: gaming_study
+  username: root
+  password: root
+  port: 8080
