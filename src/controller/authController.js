@@ -2,12 +2,25 @@ import db from '../mysql/index.js';
 import logs from "../utils/logs.js";
 import {queryUserInfo, insertUserInfo} from '../mapper/public/index.js';
 import {generateToken} from "../utils/generateToken.js";
+import {createCaptcha} from "../service/public/index.js";
+import captchaContainer from "../utils/captchas.js"
 
 
 // 登录控制器
 const login = (req, res) => {
   // 在这里进行用户身份验证...
-  const {username, password} = req.body;
+  const {username, password, captcha, captchaId} = req.body;
+  if (!username || !password || !captcha) {
+    res.status(200).json({code: 400, message: '请输入用户名、密码和验证码'});
+    return;
+  }
+  if (
+    parseInt(captchaContainer.get(captchaId).text) != captcha &&
+    captchaContainer.get(captchaId).text.toLowerCase() != captcha.toLowerCase()
+  ) {
+    res.status(200).json({code: 401, message: '验证码错误'});
+    return;
+  }
   db.getConnection((err, connection) => {
     if (err) {
       logs('数据库连接错误:', err);
@@ -15,33 +28,35 @@ const login = (req, res) => {
       return;
     }
     
-    connection.query(queryUserInfo(username, password), (error, results) => {
-      if (error) {
-        logs('数据库查询错误:', error);
-        res.status(200).json({code: 500, data: null, message: '服务器错误'});
-        return;
-      }
-      
-      if (results.length === 0) {
-        res.status(200).json({code: 401, message: '用户名或密码不正确'});
-      } else {
-        // 验证成功，生成 Token
-        const user = {
-          username: username,
-          password: password
-        };
-        // user是存入token的信息
-        // 并且设置token过期时间
-        const token = generateToken(user);
-        /**
-         * 延时一下，等待一下
-         */
-        setTimeout(() => {
-          // 返回 Token 给用户
-          res.status(200).json({code: 200, message: '登录成功', data: token});
-        }, 1000)
-      }
-    });
+    connection.query(
+      queryUserInfo(username, password),
+      (error, results) => {
+        if (error) {
+          logs('数据库查询错误:', error);
+          res.status(200).json({code: 500, data: null, message: '服务器错误'});
+          return;
+        }
+        
+        if (results.length === 0) {
+          res.status(200).json({code: 401, message: '用户名或密码不正确'});
+        } else {
+          // 验证成功，生成 Token
+          const user = {
+            username: username,
+            password: password
+          };
+          // user是存入token的信息
+          // 并且设置token过期时间
+          const token = generateToken(user);
+          /**
+           * 延时一下，等待一下
+           */
+          setTimeout(() => {
+            // 返回 Token 给用户
+            res.status(200).json({code: 200, message: '登录成功', data: token});
+          }, 1000)
+        }
+      });
     
     connection.release();
   });
@@ -89,13 +104,30 @@ const register = (req, res) => {
   })
 };
 
+const getCaptcha = (req, res) => {
+  createCaptcha()
+    .then(({id, path, text}) => {
+      logs('创建验证码成功:', `${path.match(/\/profile\/captcha\/(.*?)\.png/i)?.[1]}:${text}`);
+      captchaContainer.add({id, text});
+      res.status(200).json({code: 200, message: '操作成功', data: path});
+    })
+    .catch((err) => {
+      logs('创建验证码失败:', err);
+      res.status(200).json({code: 500, message: '服务器错误', data: null});
+    });
+}
+
+const verifyCaptcha = (req, res) => {
+
+}
+
 // 扫码登录控制器
 const scanLogin = (req, res) => {
   const url = `http://192.168.6.11`;
 }
 
-
 export {
   login,
-  register
+  register,
+  getCaptcha
 }

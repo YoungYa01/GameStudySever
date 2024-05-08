@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 /package-lock.json
 /yarn.lock
+/src/public/**/*.jpg
+/src/public/**/*.png
+/src/public/**/*.jpeg
